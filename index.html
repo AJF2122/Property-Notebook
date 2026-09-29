@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Property Notebook">
+<meta name="format-detection" content="telephone=no">
 <title>Property Notebook — Prototype</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -17,7 +21,10 @@
     --shadow:0 1px 2px rgba(24,34,51,0.05), 0 4px 14px rgba(24,34,51,0.06);
   }
   *{box-sizing:border-box; margin:0; padding:0;}
-  body{background:var(--bg); color:var(--text); font-family:'Manrope',sans-serif; -webkit-font-smoothing:antialiased;}
+  html{-webkit-text-size-adjust:100%;}
+  body{background:var(--bg); color:var(--text); font-family:'Manrope',sans-serif; -webkit-font-smoothing:antialiased; padding-top:env(safe-area-inset-top); padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right);}
+  button,input,textarea,select{-webkit-tap-highlight-color:transparent; touch-action:manipulation;}
+  input,textarea,select{font-size:16px !important;} /* prevents iOS Safari auto-zoom */
   .mono{font-family:'IBM Plex Mono',monospace;}
   button, input, textarea, select{font-family:inherit;}
 
@@ -60,10 +67,23 @@
   }
   .ai-btn:disabled{opacity:0.5; cursor:default;}
   .transcript-box{
-    width:100%; min-height:54px; border:1px dashed var(--border); border-radius:10px; padding:10px 12px;
-    font-size:13px; color:var(--dim); background:var(--bg); margin-bottom:12px; white-space:pre-wrap;
+    width:100%; min-height:96px; border:1px dashed var(--border); border-radius:10px; padding:11px 12px;
+    color:var(--text); background:var(--bg); margin-bottom:8px; white-space:pre-wrap; resize:vertical; line-height:1.45;
   }
-  .transcript-box:empty::before{content:"Transcript will appear here while you speak…"; color:var(--dim-2);}
+  .dictation-note{font-size:11px; color:var(--dim); line-height:1.45; margin:-2px 0 12px;}
+  .dictate-btn{
+    display:flex; align-items:center; gap:7px; padding:10px 14px; border-radius:100px; border:1px solid var(--border);
+    background:var(--surface); color:var(--text); font-weight:700; font-size:13px; cursor:pointer;
+  }
+  @media (max-width:520px){
+    .app{padding:18px 14px calc(90px + env(safe-area-inset-bottom));}
+    .voice-row{flex-wrap:wrap;}
+    .mic-btn,.ai-btn,.dictate-btn{min-height:44px;}
+    .field-row{grid-template-columns:1fr;}
+    .field.full{grid-column:auto;}
+    .btn-row{flex-wrap:wrap;}
+    .primary-btn,.ghost-btn{min-height:44px;}
+  }
 
   .btn-row{display:flex; gap:10px; margin-top:6px;}
   .primary-btn{flex:1; padding:11px; border-radius:12px; border:none; background:var(--accent); color:#fff; font-weight:700; font-size:14px; cursor:pointer;}
@@ -128,23 +148,25 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/></svg>
           <span id="mic-prop-label">Record</span>
         </button>
+        <button class="dictate-btn" type="button" onclick="focusForDictation('prop')">⌨️ iPhone Dictation</button>
         <button class="ai-btn" id="ai-prop" onclick="autofillProperty()" disabled>✨ Auto-fill fields</button>
       </div>
-      <div class="transcript-box" id="transcript-prop"></div>
+      <textarea class="transcript-box" id="transcript-prop" placeholder="Speak with Record, or tap here and use the iPhone keyboard microphone…" oninput="syncAiButton('prop')"></textarea>
+      <div class="dictation-note">On iPhone, if Record is unavailable or unreliable, tap <strong>iPhone Dictation</strong>, then tap the microphone on the Apple keyboard and speak. When finished, tap <strong>Auto-fill fields</strong>.</div>
 
       <div class="field-row">
-        <div class="field full"><label>Address</label><input id="f-address" type="text" placeholder="123 Ocean Ave, Long Beach"></div>
+        <div class="field full"><label>Address</label><input id="f-address" type="text" autocomplete="street-address" autocapitalize="words" enterkeyhint="next" placeholder="123 Ocean Ave, Long Beach"></div>
       </div>
       <div class="field-row">
-        <div class="field"><label>Owner name</label><input id="f-owner" type="text"></div>
-        <div class="field"><label>List price</label><input id="f-price" type="text" placeholder="$850,000"></div>
+        <div class="field"><label>Owner name</label><input id="f-owner" type="text" autocomplete="name" autocapitalize="words" enterkeyhint="next"></div>
+        <div class="field"><label>List price</label><input id="f-price" type="text" inputmode="decimal" enterkeyhint="next" placeholder="$850,000"></div>
       </div>
       <div class="field-row">
-        <div class="field"><label>Beds</label><input id="f-beds" type="text"></div>
-        <div class="field"><label>Baths</label><input id="f-baths" type="text"></div>
+        <div class="field"><label>Beds</label><input id="f-beds" type="text" inputmode="decimal" enterkeyhint="next"></div>
+        <div class="field"><label>Baths</label><input id="f-baths" type="text" inputmode="decimal" enterkeyhint="next"></div>
       </div>
       <div class="field-row">
-        <div class="field"><label>Sqft</label><input id="f-sqft" type="text"></div>
+        <div class="field"><label>Sqft</label><input id="f-sqft" type="text" inputmode="numeric" enterkeyhint="next"></div>
         <div class="field"><label>Status</label>
           <select id="f-status">
             <option value="for-sale">For sale</option>
@@ -174,9 +196,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/></svg>
           <span id="mic-rem-label">Record</span>
         </button>
+        <button class="dictate-btn" type="button" onclick="focusForDictation('rem')">⌨️ iPhone Dictation</button>
         <button class="ai-btn" id="ai-rem" onclick="autofillReminder()" disabled>✨ Parse reminder</button>
       </div>
-      <div class="transcript-box" id="transcript-rem"></div>
+      <textarea class="transcript-box" id="transcript-rem" placeholder="Speak, type, or use iPhone Dictation…" oninput="syncAiButton('rem')"></textarea>
 
       <div class="field-row">
         <div class="field full"><label>Reminder</label><input id="r-text" type="text" placeholder="Call listing agent about the roof"></div>
@@ -196,7 +219,7 @@
   </div>
 
   <div class="note" style="text-align:center; margin-top:20px;">
-    Prototype note — data is stored only in this browser (localStorage). AI autofill calls the Anthropic API directly from your browser using your own key, entered in Settings.
+    Prototype note — data is stored only in this browser (localStorage). On iPhone you can type or use Apple Dictation in the transcript box, then use AI Auto-fill. The Anthropic API is called directly from your browser using your own key entered in Settings.
   </div>
 </div>
 
@@ -245,7 +268,8 @@ function saveApiKey(){
 function toggleMic(target){
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SpeechRecognition){
-    alert('Speech recognition isn\'t supported in this browser. Try Chrome on desktop or Android.');
+    focusForDictation(target);
+    alert('Live browser recording is not available here. The transcript box is ready — use the microphone on your iPhone keyboard to dictate, then tap Auto-fill.');
     return;
   }
   const micBtn = document.getElementById('mic-' + target);
@@ -265,7 +289,7 @@ function toggleMic(target){
   recognition.lang = 'en-US';
   recordingTarget = target;
 
-  let finalText = transcriptBox.textContent && !transcriptBox.classList.contains('placeholder') ? transcriptBox.textContent : '';
+  let finalText = transcriptBox.value || '';
 
   recognition.onstart = () => {
     micBtn.classList.add('recording');
@@ -278,17 +302,35 @@ function toggleMic(target){
       if(e.results[i].isFinal){ finalText += t + ' '; }
       else{ interim += t; }
     }
-    transcriptBox.textContent = (finalText + interim).trim();
+    transcriptBox.value = (finalText + interim).trim();
+    syncAiButton(target);
   };
   recognition.onerror = (e) => { console.error('Speech recognition error', e.error); };
   recognition.onend = () => {
     micBtn.classList.remove('recording');
     micLabel.textContent = 'Record';
-    if(transcriptBox.textContent.trim()) aiBtn.disabled = false;
+    syncAiButton(target);
     recognition = null;
     recordingTarget = null;
   };
   recognition.start();
+}
+
+/* ---------------- iPhone / text-entry helpers ---------------- */
+function syncAiButton(target){
+  const box = document.getElementById('transcript-' + target);
+  const btn = document.getElementById('ai-' + target);
+  if(box && btn) btn.disabled = !box.value.trim();
+}
+
+function focusForDictation(target){
+  if(recognition){ try{ recognition.stop(); }catch(e){} }
+  const box = document.getElementById('transcript-' + target);
+  if(!box) return;
+  box.focus({preventScroll:false});
+  const len = box.value.length;
+  try{ box.setSelectionRange(len, len); }catch(e){}
+  setTimeout(() => box.scrollIntoView({behavior:'smooth', block:'center'}), 150);
 }
 
 /* ---------------- Claude API call ---------------- */
@@ -328,7 +370,7 @@ function extractJson(text){
 
 /* ---------------- property autofill ---------------- */
 async function autofillProperty(){
-  const transcript = document.getElementById('transcript-prop').textContent.trim();
+  const transcript = document.getElementById('transcript-prop').value.trim();
   if(!transcript) return;
   const aiBtn = document.getElementById('ai-prop');
   aiBtn.disabled = true;
@@ -356,7 +398,7 @@ async function autofillProperty(){
 function clearPropertyForm(){
   ['f-address','f-owner','f-price','f-beds','f-baths','f-sqft','f-notes'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('f-status').value = 'for-sale';
-  document.getElementById('transcript-prop').textContent = '';
+  document.getElementById('transcript-prop').value = '';
   document.getElementById('ai-prop').disabled = true;
 }
 
@@ -414,7 +456,7 @@ function renderEntries(){
 
 /* ---------------- reminders ---------------- */
 async function autofillReminder(){
-  const transcript = document.getElementById('transcript-rem').textContent.trim();
+  const transcript = document.getElementById('transcript-rem').value.trim();
   if(!transcript) return;
   const aiBtn = document.getElementById('ai-rem');
   aiBtn.disabled = true;
@@ -445,7 +487,7 @@ function saveReminder(){
   document.getElementById('r-text').value = '';
   document.getElementById('r-date').value = '';
   document.getElementById('r-time').value = '';
-  document.getElementById('transcript-rem').textContent = '';
+  document.getElementById('transcript-rem').value = '';
   document.getElementById('ai-rem').disabled = true;
   renderReminders();
 }
@@ -511,6 +553,8 @@ function escapeHtml(s){
 /* ---------------- init ---------------- */
 renderEntries();
 renderReminders();
+syncAiButton('prop');
+syncAiButton('rem');
 </script>
 </body>
 </html>
