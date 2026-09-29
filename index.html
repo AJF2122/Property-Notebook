@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Property Notebook — Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F6F7F9; --surface:#FFFFFF; --border:#E2E6EB;
+    --text:#182233; --dim:#66707C; --dim-2:#98A2AD;
+    --accent:#1E4B8C; --accent-soft:#E7EEF8;
+    --gold:#C99A3E; --gold-soft:#FBF1DC;
+    --danger:#D64545; --danger-soft:#FBE4E4;
+    --good:#2E9E5B; --good-soft:#E3F5EA;
+    --shadow:0 1px 2px rgba(24,34,51,0.05), 0 4px 14px rgba(24,34,51,0.06);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--text); font-family:'Manrope',sans-serif; -webkit-font-smoothing:antialiased;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  button, input, textarea, select{font-family:inherit;}
+
+  .app{max-width:640px; margin:0 auto; padding:24px 18px 80px;}
+  header.app-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;}
+  header.app-header h1{font-size:20px; font-weight:800;}
+  header.app-header .sub{font-size:12px; color:var(--dim); font-weight:600; margin-top:2px;}
+  .icon-btn{width:38px; height:38px; border-radius:12px; background:var(--surface); border:1px solid var(--border); cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--dim);}
+  .icon-btn:hover{color:var(--text);}
+
+  .tabs{display:flex; gap:8px; margin-bottom:18px;}
+  .tab-btn{flex:1; padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:var(--dim); font-weight:700; font-size:13px; cursor:pointer;}
+  .tab-btn.active{background:var(--accent); color:#fff; border-color:transparent;}
+
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow); padding:18px; margin-bottom:14px;}
+  .card h2{font-size:14px; font-weight:800; margin-bottom:12px;}
+
+  .field-row{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;}
+  .field{display:flex; flex-direction:column; gap:5px;}
+  .field.full{grid-column:1 / -1;}
+  .field label{font-size:11px; font-weight:700; color:var(--dim);}
+  .field input, .field select, .field textarea{
+    border:1px solid var(--border); border-radius:10px; padding:9px 11px; font-size:14px; color:var(--text); background:var(--bg);
+  }
+  .field textarea{resize:vertical; min-height:60px;}
+
+  .voice-row{display:flex; align-items:center; gap:10px; margin:14px 0;}
+  .mic-btn{
+    display:flex; align-items:center; gap:8px; padding:10px 16px; border-radius:100px; border:none;
+    background:var(--accent-soft); color:var(--accent); font-weight:700; font-size:13px; cursor:pointer;
+  }
+  .mic-btn.recording{background:var(--danger-soft); color:var(--danger);}
+  .mic-btn svg{width:16px; height:16px;}
+  .ai-btn{
+    display:flex; align-items:center; gap:6px; padding:10px 16px; border-radius:100px; border:none;
+    background:var(--gold-soft); color:#8A6A1E; font-weight:700; font-size:13px; cursor:pointer;
+  }
+  .ai-btn:disabled{opacity:0.5; cursor:default;}
+  .transcript-box{
+    width:100%; min-height:54px; border:1px dashed var(--border); border-radius:10px; padding:10px 12px;
+    font-size:13px; color:var(--dim); background:var(--bg); margin-bottom:12px; white-space:pre-wrap;
+  }
+  .transcript-box:empty::before{content:"Transcript will appear here while you speak…"; color:var(--dim-2);}
+
+  .btn-row{display:flex; gap:10px; margin-top:6px;}
+  .primary-btn{flex:1; padding:11px; border-radius:12px; border:none; background:var(--accent); color:#fff; font-weight:700; font-size:14px; cursor:pointer;}
+  .ghost-btn{padding:11px 16px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:var(--dim); font-weight:700; font-size:14px; cursor:pointer;}
+
+  .entry-card{background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px 18px; margin-bottom:10px; box-shadow:var(--shadow);}
+  .entry-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+  .entry-address{font-size:15px; font-weight:800;}
+  .entry-owner{font-size:12.5px; color:var(--dim); margin-top:2px;}
+  .status-pill{font-size:10.5px; font-weight:700; padding:4px 10px; border-radius:100px; white-space:nowrap;}
+  .status-pill.for-sale{background:var(--good-soft); color:var(--good);}
+  .status-pill.for-lease{background:var(--accent-soft); color:var(--accent);}
+  .status-pill.off-market{background:var(--border); color:var(--dim);}
+  .entry-meta{display:flex; gap:14px; margin-top:10px; font-size:12.5px; color:var(--text); font-family:'IBM Plex Mono',monospace;}
+  .entry-notes{font-size:12.5px; color:var(--dim); margin-top:10px; line-height:1.5;}
+  .entry-actions{display:flex; gap:8px; margin-top:12px;}
+  .entry-actions button{font-size:11.5px; font-weight:700; padding:6px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--dim); cursor:pointer;}
+  .entry-actions button.danger{color:var(--danger); border-color:var(--danger-soft);}
+
+  .reminder-item{display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:13px 16px; margin-bottom:8px;}
+  .reminder-item.overdue{border-color:var(--danger-soft); background:var(--danger-soft);}
+  .reminder-check{width:20px; height:20px; border-radius:50%; border:2px solid var(--border); cursor:pointer; flex-shrink:0;}
+  .reminder-body{flex:1;}
+  .reminder-text{font-size:13.5px; font-weight:600;}
+  .reminder-due{font-size:11px; color:var(--dim); font-family:'IBM Plex Mono',monospace; margin-top:2px;}
+  .reminder-item.overdue .reminder-due{color:var(--danger);}
+  .reminder-del{background:none; border:none; color:var(--dim-2); cursor:pointer; font-size:16px;}
+
+  .empty-state{text-align:center; color:var(--dim); font-size:13px; padding:30px 10px;}
+
+  .modal-backdrop{display:none; position:fixed; inset:0; background:rgba(24,34,51,0.4); align-items:center; justify-content:center; padding:20px; z-index:100;}
+  .modal-backdrop.open{display:flex;}
+  .modal{background:var(--surface); border-radius:18px; padding:22px; max-width:420px; width:100%;}
+  .modal h3{font-size:15px; font-weight:800; margin-bottom:8px;}
+  .modal p{font-size:12.5px; color:var(--dim); line-height:1.5; margin-bottom:14px;}
+  .modal input{width:100%; border:1px solid var(--border); border-radius:10px; padding:10px 12px; font-size:13px; margin-bottom:14px;}
+  .modal .btn-row{margin-top:0;}
+  .note{font-size:11px; color:var(--dim-2); margin-top:10px; line-height:1.5;}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+    <div>
+      <h1>Property Notebook</h1>
+      <div class="sub">prototype · voice-assisted</div>
+    </div>
+    <button class="icon-btn" onclick="openSettings()" title="API key settings">⚙</button>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-props" onclick="switchTab('properties')">Properties</button>
+    <button class="tab-btn" id="tab-rem" onclick="switchTab('reminders')">Reminders</button>
+  </div>
+
+  <!-- ===================== PROPERTIES ===================== -->
+  <div class="panel active" id="panel-properties">
+    <div class="card">
+      <h2>New entry</h2>
+      <div class="voice-row">
+        <button class="mic-btn" id="mic-prop" onclick="toggleMic('prop')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/></svg>
+          <span id="mic-prop-label">Record</span>
+        </button>
+        <button class="ai-btn" id="ai-prop" onclick="autofillProperty()" disabled>✨ Auto-fill fields</button>
+      </div>
+      <div class="transcript-box" id="transcript-prop"></div>
+
+      <div class="field-row">
+        <div class="field full"><label>Address</label><input id="f-address" type="text" placeholder="123 Ocean Ave, Long Beach"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Owner name</label><input id="f-owner" type="text"></div>
+        <div class="field"><label>List price</label><input id="f-price" type="text" placeholder="$850,000"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Beds</label><input id="f-beds" type="text"></div>
+        <div class="field"><label>Baths</label><input id="f-baths" type="text"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Sqft</label><input id="f-sqft" type="text"></div>
+        <div class="field"><label>Status</label>
+          <select id="f-status">
+            <option value="for-sale">For sale</option>
+            <option value="for-lease">For lease</option>
+            <option value="off-market">Off market</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field full"><label>Notes</label><textarea id="f-notes"></textarea></div>
+      </div>
+      <div class="btn-row">
+        <button class="primary-btn" onclick="saveEntry()">Save entry</button>
+        <button class="ghost-btn" onclick="clearPropertyForm()">Clear</button>
+      </div>
+    </div>
+
+    <div id="entries-list"></div>
+  </div>
+
+  <!-- ===================== REMINDERS ===================== -->
+  <div class="panel" id="panel-reminders">
+    <div class="card">
+      <h2>New reminder</h2>
+      <div class="voice-row">
+        <button class="mic-btn" id="mic-rem" onclick="toggleMic('rem')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/></svg>
+          <span id="mic-rem-label">Record</span>
+        </button>
+        <button class="ai-btn" id="ai-rem" onclick="autofillReminder()" disabled>✨ Parse reminder</button>
+      </div>
+      <div class="transcript-box" id="transcript-rem"></div>
+
+      <div class="field-row">
+        <div class="field full"><label>Reminder</label><input id="r-text" type="text" placeholder="Call listing agent about the roof"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Due date</label><input id="r-date" type="date"></div>
+        <div class="field"><label>Due time</label><input id="r-time" type="time"></div>
+      </div>
+      <div class="btn-row">
+        <button class="primary-btn" onclick="saveReminder()">Save reminder</button>
+        <button class="ghost-btn" onclick="requestNotifPermission()">Enable notifications</button>
+      </div>
+      <div class="note">Notifications only fire while this tab is open in your browser — that's a browser limitation, not a bug. A native app version would use real OS alarms.</div>
+    </div>
+
+    <div id="reminders-list"></div>
+  </div>
+
+  <div class="note" style="text-align:center; margin-top:20px;">
+    Prototype note — data is stored only in this browser (localStorage). AI autofill calls the Anthropic API directly from your browser using your own key, entered in Settings.
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-backdrop" id="settings-modal">
+  <div class="modal">
+    <h3>Anthropic API key</h3>
+    <p>Needed for the "Auto-fill fields" and "Parse reminder" buttons. Get a key at console.anthropic.com. It's stored only in this browser's localStorage — never sent anywhere except directly to Anthropic's API.</p>
+    <input id="api-key-input" type="password" placeholder="sk-ant-...">
+    <div class="btn-row">
+      <button class="primary-btn" onclick="saveApiKey()">Save key</button>
+      <button class="ghost-btn" onclick="closeSettings()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------- state ---------------- */
+let entries = JSON.parse(localStorage.getItem('pn_entries') || '[]');
+let reminders = JSON.parse(localStorage.getItem('pn_reminders') || '[]');
+let apiKey = localStorage.getItem('pn_api_key') || '';
+let recognition = null;
+let recordingTarget = null;
+
+/* ---------------- tabs ---------------- */
+function switchTab(tab){
+  document.getElementById('panel-properties').classList.toggle('active', tab==='properties');
+  document.getElementById('panel-reminders').classList.toggle('active', tab==='reminders');
+  document.getElementById('tab-props').classList.toggle('active', tab==='properties');
+  document.getElementById('tab-rem').classList.toggle('active', tab==='reminders');
+}
+
+/* ---------------- settings modal ---------------- */
+function openSettings(){
+  document.getElementById('api-key-input').value = apiKey;
+  document.getElementById('settings-modal').classList.add('open');
+}
+function closeSettings(){ document.getElementById('settings-modal').classList.remove('open'); }
+function saveApiKey(){
+  apiKey = document.getElementById('api-key-input').value.trim();
+  localStorage.setItem('pn_api_key', apiKey);
+  closeSettings();
+}
+
+/* ---------------- voice recording ---------------- */
+function toggleMic(target){
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SpeechRecognition){
+    alert('Speech recognition isn\'t supported in this browser. Try Chrome on desktop or Android.');
+    return;
+  }
+  const micBtn = document.getElementById('mic-' + target);
+  const micLabel = document.getElementById('mic-' + target + '-label');
+  const transcriptBox = document.getElementById('transcript-' + target);
+  const aiBtn = document.getElementById('ai-' + target);
+
+  if(recognition && recordingTarget === target){
+    recognition.stop();
+    return;
+  }
+  if(recognition){ recognition.stop(); }
+
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+  recordingTarget = target;
+
+  let finalText = transcriptBox.textContent && !transcriptBox.classList.contains('placeholder') ? transcriptBox.textContent : '';
+
+  recognition.onstart = () => {
+    micBtn.classList.add('recording');
+    micLabel.textContent = 'Stop';
+  };
+  recognition.onresult = (e) => {
+    let interim = '';
+    for(let i = e.resultIndex; i < e.results.length; i++){
+      const t = e.results[i][0].transcript;
+      if(e.results[i].isFinal){ finalText += t + ' '; }
+      else{ interim += t; }
+    }
+    transcriptBox.textContent = (finalText + interim).trim();
+  };
+  recognition.onerror = (e) => { console.error('Speech recognition error', e.error); };
+  recognition.onend = () => {
+    micBtn.classList.remove('recording');
+    micLabel.textContent = 'Record';
+    if(transcriptBox.textContent.trim()) aiBtn.disabled = false;
+    recognition = null;
+    recordingTarget = null;
+  };
+  recognition.start();
+}
+
+/* ---------------- Claude API call ---------------- */
+async function callClaude(systemPrompt, userText){
+  if(!apiKey){
+    openSettings();
+    throw new Error('No API key set');
+  }
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 500,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userText }]
+    })
+  });
+  if(!res.ok){
+    const errText = await res.text();
+    throw new Error('API error: ' + res.status + ' ' + errText);
+  }
+  const data = await res.json();
+  return data.content.map(b => b.text || '').join('');
+}
+
+function extractJson(text){
+  const match = text.match(/\{[\s\S]*\}/);
+  if(!match) throw new Error('No JSON found in response');
+  return JSON.parse(match[0]);
+}
+
+/* ---------------- property autofill ---------------- */
+async function autofillProperty(){
+  const transcript = document.getElementById('transcript-prop').textContent.trim();
+  if(!transcript) return;
+  const aiBtn = document.getElementById('ai-prop');
+  aiBtn.disabled = true;
+  aiBtn.textContent = '✨ Thinking…';
+  try{
+    const system = `Extract real estate property details from a real estate agent's spoken notes. Respond with ONLY a JSON object, no other text, using these keys (omit any key you can't confidently fill): address, ownerName, listPrice, beds, baths, sqft, status (one of "for-sale","for-lease","off-market"), notes (a short summary of anything else mentioned, like condition or client concerns).`;
+    const raw = await callClaude(system, transcript);
+    const fields = extractJson(raw);
+    if(fields.address) document.getElementById('f-address').value = fields.address;
+    if(fields.ownerName) document.getElementById('f-owner').value = fields.ownerName;
+    if(fields.listPrice) document.getElementById('f-price').value = fields.listPrice;
+    if(fields.beds) document.getElementById('f-beds').value = fields.beds;
+    if(fields.baths) document.getElementById('f-baths').value = fields.baths;
+    if(fields.sqft) document.getElementById('f-sqft').value = fields.sqft;
+    if(fields.status) document.getElementById('f-status').value = fields.status;
+    if(fields.notes) document.getElementById('f-notes').value = fields.notes;
+  } catch(err){
+    alert('Auto-fill failed: ' + err.message);
+  } finally{
+    aiBtn.disabled = false;
+    aiBtn.textContent = '✨ Auto-fill fields';
+  }
+}
+
+function clearPropertyForm(){
+  ['f-address','f-owner','f-price','f-beds','f-baths','f-sqft','f-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-status').value = 'for-sale';
+  document.getElementById('transcript-prop').textContent = '';
+  document.getElementById('ai-prop').disabled = true;
+}
+
+function saveEntry(){
+  const address = document.getElementById('f-address').value.trim();
+  if(!address){ alert('Address is required.'); return; }
+  const entry = {
+    id: Date.now(),
+    address,
+    owner: document.getElementById('f-owner').value.trim(),
+    price: document.getElementById('f-price').value.trim(),
+    beds: document.getElementById('f-beds').value.trim(),
+    baths: document.getElementById('f-baths').value.trim(),
+    sqft: document.getElementById('f-sqft').value.trim(),
+    status: document.getElementById('f-status').value,
+    notes: document.getElementById('f-notes').value.trim()
+  };
+  entries.unshift(entry);
+  localStorage.setItem('pn_entries', JSON.stringify(entries));
+  clearPropertyForm();
+  renderEntries();
+}
+function deleteEntry(id){
+  entries = entries.filter(e => e.id !== id);
+  localStorage.setItem('pn_entries', JSON.stringify(entries));
+  renderEntries();
+}
+function statusLabel(s){ return {'for-sale':'For sale','for-lease':'For lease','off-market':'Off market'}[s] || s; }
+
+function renderEntries(){
+  const list = document.getElementById('entries-list');
+  if(!entries.length){ list.innerHTML = '<div class="empty-state">No entries yet — record a voice note above or fill the form.</div>'; return; }
+  list.innerHTML = entries.map(e => `
+    <div class="entry-card">
+      <div class="entry-top">
+        <div>
+          <div class="entry-address">${escapeHtml(e.address)}</div>
+          ${e.owner ? `<div class="entry-owner">Owner: ${escapeHtml(e.owner)}</div>` : ''}
+        </div>
+        <span class="status-pill ${e.status}">${statusLabel(e.status)}</span>
+      </div>
+      <div class="entry-meta">
+        ${e.price ? `<span>${escapeHtml(e.price)}</span>` : ''}
+        ${e.beds ? `<span>${escapeHtml(e.beds)} bd</span>` : ''}
+        ${e.baths ? `<span>${escapeHtml(e.baths)} ba</span>` : ''}
+        ${e.sqft ? `<span>${escapeHtml(e.sqft)} sqft</span>` : ''}
+      </div>
+      ${e.notes ? `<div class="entry-notes">${escapeHtml(e.notes)}</div>` : ''}
+      <div class="entry-actions">
+        <button class="danger" onclick="deleteEntry(${e.id})">Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ---------------- reminders ---------------- */
+async function autofillReminder(){
+  const transcript = document.getElementById('transcript-rem').textContent.trim();
+  if(!transcript) return;
+  const aiBtn = document.getElementById('ai-rem');
+  aiBtn.disabled = true;
+  aiBtn.textContent = '✨ Thinking…';
+  try{
+    const today = new Date().toISOString().slice(0,10);
+    const system = `Extract a reminder from a real estate agent's spoken note. Today's date is ${today}. Respond with ONLY a JSON object with keys: text (short reminder text), date (YYYY-MM-DD, resolve relative dates like "Friday" or "in 3 days" against today), time (HH:MM 24-hour, omit if no time mentioned).`;
+    const raw = await callClaude(system, transcript);
+    const fields = extractJson(raw);
+    if(fields.text) document.getElementById('r-text').value = fields.text;
+    if(fields.date) document.getElementById('r-date').value = fields.date;
+    if(fields.time) document.getElementById('r-time').value = fields.time;
+  } catch(err){
+    alert('Parse failed: ' + err.message);
+  } finally{
+    aiBtn.disabled = false;
+    aiBtn.textContent = '✨ Parse reminder';
+  }
+}
+
+function saveReminder(){
+  const text = document.getElementById('r-text').value.trim();
+  const date = document.getElementById('r-date').value;
+  if(!text || !date){ alert('Reminder text and date are required.'); return; }
+  const time = document.getElementById('r-time').value || '09:00';
+  reminders.push({ id: Date.now(), text, date, time, done: false });
+  localStorage.setItem('pn_reminders', JSON.stringify(reminders));
+  document.getElementById('r-text').value = '';
+  document.getElementById('r-date').value = '';
+  document.getElementById('r-time').value = '';
+  document.getElementById('transcript-rem').textContent = '';
+  document.getElementById('ai-rem').disabled = true;
+  renderReminders();
+}
+function toggleReminderDone(id){
+  reminders = reminders.map(r => r.id === id ? {...r, done: !r.done} : r);
+  localStorage.setItem('pn_reminders', JSON.stringify(reminders));
+  renderReminders();
+}
+function deleteReminder(id){
+  reminders = reminders.filter(r => r.id !== id);
+  localStorage.setItem('pn_reminders', JSON.stringify(reminders));
+  renderReminders();
+}
+function requestNotifPermission(){
+  if('Notification' in window){ Notification.requestPermission(); }
+}
+function renderReminders(){
+  const list = document.getElementById('reminders-list');
+  const active = reminders.filter(r => !r.done).sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time));
+  const done = reminders.filter(r => r.done);
+  if(!active.length && !done.length){ list.innerHTML = '<div class="empty-state">No reminders yet.</div>'; return; }
+  const now = new Date();
+  list.innerHTML = active.map(r => {
+    const due = new Date(r.date + 'T' + r.time);
+    const overdue = due < now;
+    return `<div class="reminder-item ${overdue?'overdue':''}">
+      <div class="reminder-check" onclick="toggleReminderDone(${r.id})"></div>
+      <div class="reminder-body">
+        <div class="reminder-text">${escapeHtml(r.text)}</div>
+        <div class="reminder-due">${r.date} · ${r.time}${overdue?' · overdue':''}</div>
+      </div>
+      <button class="reminder-del" onclick="deleteReminder(${r.id})">&times;</button>
+    </div>`;
+  }).join('') + (done.length ? done.map(r => `
+    <div class="reminder-item" style="opacity:0.5;">
+      <div class="reminder-check" style="background:var(--good); border-color:var(--good);" onclick="toggleReminderDone(${r.id})"></div>
+      <div class="reminder-body">
+        <div class="reminder-text" style="text-decoration:line-through;">${escapeHtml(r.text)}</div>
+        <div class="reminder-due">${r.date} · ${r.time}</div>
+      </div>
+      <button class="reminder-del" onclick="deleteReminder(${r.id})">&times;</button>
+    </div>`).join('') : '');
+}
+
+/* notification check loop — best effort, tab must be open */
+setInterval(() => {
+  if(!('Notification' in window) || Notification.permission !== 'granted') return;
+  const now = new Date();
+  reminders.filter(r => !r.done && !r.notified).forEach(r => {
+    const due = new Date(r.date + 'T' + r.time);
+    if(due <= now){
+      new Notification('Property Notebook reminder', { body: r.text });
+      r.notified = true;
+      localStorage.setItem('pn_reminders', JSON.stringify(reminders));
+    }
+  });
+}, 30000);
+
+function escapeHtml(s){
+  return (s || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+/* ---------------- init ---------------- */
+renderEntries();
+renderReminders();
+</script>
+</body>
+</html>
