@@ -33,7 +33,7 @@
   header.app-header h1{font-size:20px; font-weight:800;}
   header.app-header .sub{font-size:12px; color:var(--dim); font-weight:600; margin-top:2px;}
   .icon-btn{width:38px; height:38px; border-radius:12px; background:var(--surface); border:1px solid var(--border); cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--dim);}
-  .icon-btn:hover{color:var(--text);}
+  .icon-btn:hover{color:var(--text);} .icon-btn[aria-label="No API key required"]{color:var(--good); font-weight:800; cursor:default;}
 
   .tabs{display:flex; gap:8px; margin-bottom:18px;}
   .tab-btn{flex:1; padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:var(--dim); font-weight:700; font-size:13px; cursor:pointer;}
@@ -129,9 +129,9 @@
   <header class="app-header">
     <div>
       <h1>Property Notebook</h1>
-      <div class="sub">prototype · voice-assisted</div>
+      <div class="sub">prototype · iPhone ready · no API key</div>
     </div>
-    <button class="icon-btn" onclick="openSettings()" title="API key settings">⚙</button>
+    <div class="icon-btn" title="No API key required" aria-label="No API key required">✓</div>
   </header>
 
   <div class="tabs">
@@ -152,7 +152,7 @@
         <button class="ai-btn" id="ai-prop" onclick="autofillProperty()" disabled>✨ Auto-fill fields</button>
       </div>
       <textarea class="transcript-box" id="transcript-prop" placeholder="Speak with Record, or tap here and use the iPhone keyboard microphone…" oninput="syncAiButton('prop')"></textarea>
-      <div class="dictation-note">On iPhone, if Record is unavailable or unreliable, tap <strong>iPhone Dictation</strong>, then tap the microphone on the Apple keyboard and speak. When finished, tap <strong>Auto-fill fields</strong>.</div>
+      <div class="dictation-note">On iPhone, if Record is unavailable or unreliable, tap <strong>iPhone Dictation</strong>, then tap the microphone on the Apple keyboard and speak. When finished, tap <strong>Auto-fill fields</strong>. This test version parses common real-estate phrases directly on your phone — no paid AI key is needed.</div>
 
       <div class="field-row">
         <div class="field full"><label>Address</label><input id="f-address" type="text" autocomplete="street-address" autocapitalize="words" enterkeyhint="next" placeholder="123 Ocean Ave, Long Beach"></div>
@@ -219,20 +219,7 @@
   </div>
 
   <div class="note" style="text-align:center; margin-top:20px;">
-    Prototype note — data is stored only in this browser (localStorage). On iPhone you can type or use Apple Dictation in the transcript box, then use AI Auto-fill. The Anthropic API is called directly from your browser using your own key entered in Settings.
-  </div>
-</div>
-
-<!-- Settings modal -->
-<div class="modal-backdrop" id="settings-modal">
-  <div class="modal">
-    <h3>Anthropic API key</h3>
-    <p>Needed for the "Auto-fill fields" and "Parse reminder" buttons. Get a key at console.anthropic.com. It's stored only in this browser's localStorage — never sent anywhere except directly to Anthropic's API.</p>
-    <input id="api-key-input" type="password" placeholder="sk-ant-...">
-    <div class="btn-row">
-      <button class="primary-btn" onclick="saveApiKey()">Save key</button>
-      <button class="ghost-btn" onclick="closeSettings()">Cancel</button>
-    </div>
+    Prototype note — no API key is required. Auto-fill uses a built-in local parser for common real-estate wording, and data is stored only in this browser (localStorage). Nothing is sent to Anthropic or another AI service.
   </div>
 </div>
 
@@ -240,7 +227,6 @@
 /* ---------------- state ---------------- */
 let entries = JSON.parse(localStorage.getItem('pn_entries') || '[]');
 let reminders = JSON.parse(localStorage.getItem('pn_reminders') || '[]');
-let apiKey = localStorage.getItem('pn_api_key') || '';
 let recognition = null;
 let recordingTarget = null;
 
@@ -252,24 +238,12 @@ function switchTab(tab){
   document.getElementById('tab-rem').classList.toggle('active', tab==='reminders');
 }
 
-/* ---------------- settings modal ---------------- */
-function openSettings(){
-  document.getElementById('api-key-input').value = apiKey;
-  document.getElementById('settings-modal').classList.add('open');
-}
-function closeSettings(){ document.getElementById('settings-modal').classList.remove('open'); }
-function saveApiKey(){
-  apiKey = document.getElementById('api-key-input').value.trim();
-  localStorage.setItem('pn_api_key', apiKey);
-  closeSettings();
-}
-
 /* ---------------- voice recording ---------------- */
 function toggleMic(target){
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SpeechRecognition){
     focusForDictation(target);
-    alert('Live browser recording is not available here. The transcript box is ready — use the microphone on your iPhone keyboard to dictate, then tap Auto-fill.');
+    alert('Live browser recording is not available here. The transcript box is ready — use the microphone on your iPhone keyboard to dictate, then tap Auto-fill. No API key is needed.');
     return;
   }
   const micBtn = document.getElementById('mic-' + target);
@@ -333,66 +307,132 @@ function focusForDictation(target){
   setTimeout(() => box.scrollIntoView({behavior:'smooth', block:'center'}), 150);
 }
 
-/* ---------------- Claude API call ---------------- */
-async function callClaude(systemPrompt, userText){
-  if(!apiKey){
-    openSettings();
-    throw new Error('No API key set');
+/* ---------------- local parsing helpers (no API key) ---------------- */
+const NUMBER_WORDS = {
+  zero:0, one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9,
+  ten:10, eleven:11, twelve:12, thirteen:13, fourteen:14, fifteen:15, sixteen:16,
+  seventeen:17, eighteen:18, nineteen:19, twenty:20
+};
+
+function cleanSpace(s){ return (s || '').replace(/\s+/g,' ').trim(); }
+function capWords(s){ return cleanSpace(s).replace(/\b\w/g, c => c.toUpperCase()); }
+
+function spokenNumberToValue(raw){
+  if(raw == null) return '';
+  let s=String(raw).toLowerCase().trim().replace(/-/g,' ');
+  const direct=s.match(/\d+(?:\.\d+)?/);
+  if(direct) return direct[0];
+  if(/half/.test(s)){
+    const base=Object.keys(NUMBER_WORDS).find(k => s.includes(k));
+    if(base) return String(NUMBER_WORDS[base] + 0.5);
+    return '0.5';
   }
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 500,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userText }]
-    })
-  });
-  if(!res.ok){
-    const errText = await res.text();
-    throw new Error('API error: ' + res.status + ' ' + errText);
-  }
-  const data = await res.json();
-  return data.content.map(b => b.text || '').join('');
+  if(NUMBER_WORDS[s] != null) return String(NUMBER_WORDS[s]);
+  const parts=s.split(/\s+/);
+  let total=0, found=false;
+  for(const p of parts){ if(NUMBER_WORDS[p] != null){ total += NUMBER_WORDS[p]; found=true; } }
+  return found ? String(total) : cleanSpace(raw);
 }
 
-function extractJson(text){
-  const match = text.match(/\{[\s\S]*\}/);
-  if(!match) throw new Error('No JSON found in response');
-  return JSON.parse(match[0]);
+function normalizeMoney(raw){
+  if(!raw) return '';
+  const s=String(raw).trim();
+  const lower=s.toLowerCase().replace(/,/g,'').trim();
+  const num=parseFloat(lower.replace(/[^0-9.]/g,''));
+  if(!Number.isNaN(num)){
+    let mult=1;
+    if(/\b(?:thousand|k)\b/.test(lower)) mult=1000;
+    if(/\b(?:million|m)\b/.test(lower)) mult=1000000;
+    const val=Math.round(num*mult);
+    return '$' + val.toLocaleString('en-US');
+  }
+  return s.replace(/[.,]+$/,'');
+}
+
+function extractStatus(text){
+  const t=text.toLowerCase();
+  if(/\boff[ -]?market\b|not\s+on\s+the\s+market/.test(t)) return 'off-market';
+  if(/\bfor\s+lease\b|\bfor\s+rent\b|\blease\b|\brent(?:al|ing)?\b|\$\s?[\d,.]+\s*(?:\/|per)\s*month/.test(t)) return 'for-lease';
+  return 'for-sale';
+}
+
+function extractAddress(text){
+  const t=cleanSpace(text);
+  const labeled=t.match(/(?:address\s*(?:is|:)?\s*)(.+?)(?=\s+(?:owner|asking|listed|list price|price|for sale|for lease|rent|beds?|bedrooms?|baths?|bathrooms?|square feet|sq\.?\s*ft|sqft)\b|[.;]|$)/i);
+  if(labeled) return cleanSpace(labeled[1].replace(/[,.]+$/,''));
+
+  // Dictation usually starts with the property address. Stop at the first sentence
+  // or at the first property-detail keyword.
+  const firstClause=t.split(/[.;]/)[0].trim();
+  if(/^\d{1,6}\s+/.test(firstClause)){
+    const cut=firstClause.split(/\b(?:with|has|asking|listed|list price|price|owner|beds?|bedrooms?|baths?|bathrooms?|square feet|sqft|for sale|for lease|rent)\b/i)[0];
+    return cleanSpace(cut.replace(/[,.]+$/,''));
+  }
+
+  const street=t.match(/\b(\d{1,6}\s+[A-Za-z0-9.'#-]+(?:\s+[A-Za-z0-9.'#-]+){0,7}(?:\s+(?:Street|St|Avenue|Ave|Boulevard|Blvd|Road|Rd|Drive|Dr|Lane|Ln|Court|Ct|Way|Place|Pl|Terrace|Ter|Circle|Cir|Highway|Hwy))?(?:\s+(?:Unit|Apt|Apartment|Suite|#)\s*[A-Za-z0-9-]+)?(?:,?\s+[A-Za-z .'-]+)?(?:,?\s+(?:CA|California))?(?:\s+\d{5})?)(?=\s*(?:[.;]|$|\b(?:owner|asking|listed|list price|price|for sale|for lease|rent|beds?|bedrooms?|baths?|bathrooms?|square feet|sq\.?\s*ft|sqft)\b))/i);
+  return street ? cleanSpace(street[1].replace(/[,.]+$/,'')) : '';
+}
+
+function extractOwner(text){
+  let m=text.match(/\bowner(?:'s name| name)?\s*(?:is|:)?\s+([A-Za-z][A-Za-z .'-]{1,60}?)(?=\s+(?:asking|listed|list price|price|for sale|for lease|rent|beds?|bedrooms?|baths?|bathrooms?|square feet|sqft)\b|[.;]|$)/i);
+  if(!m) m=text.match(/\bowned by\s+([A-Za-z][A-Za-z .'-]{1,60}?)(?=\s+(?:asking|listed|price|for sale|for lease|rent|beds?|bedrooms?|baths?|bathrooms?|square feet|sqft)\b|[.;]|$)/i);
+  return m ? capWords(m[1]) : '';
+}
+
+function extractPrice(text){
+  const patterns=[
+    /\b(?:asking|asking price|list price|listed at|listed for|price|sale price|rent|lease rate|lease price)\s*(?:is|of|at|for|:)?\s*(\$?\s*[\d,.]+(?:\.\d+)?\s*(?:thousand|million|k|m)?)/i,
+    /(\$\s*[\d,.]+(?:\.\d+)?\s*(?:thousand|million|k|m)?)(?=\s*(?:\/|per)?\s*(?:month|mo|year|yr)?\b|[.;,]|$)/i
+  ];
+  for(const re of patterns){ const m=text.match(re); if(m) return normalizeMoney(m[1]); }
+  return '';
+}
+
+function extractBeds(text){
+  const m=text.match(/\b(\d+(?:\.\d+)?|zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s*(?:bed|beds|bedroom|bedrooms|bd)\b/i);
+  return m ? spokenNumberToValue(m[1]) : '';
+}
+
+function extractBaths(text){
+  const m=text.match(/\b(\d+(?:\.\d+)?|(?:zero|one|two|three|four|five|six|seven|eight|nine|ten)(?:\s+and\s+a\s+half)?|(?:zero|one|two|three|four|five|six|seven|eight|nine|ten)\s+and\s+half)\s*(?:bath|baths|bathroom|bathrooms|ba)\b/i);
+  return m ? spokenNumberToValue(m[1]) : '';
+}
+
+function extractSqft(text){
+  const m=text.match(/\b([\d,]+)\s*(?:square\s*feet|square\s*foot|sq\.?\s*ft\.?|sqft)\b/i);
+  return m ? m[1].replace(/,/g,'') : '';
+}
+
+function extractPropertyFields(text){
+  const t=cleanSpace(text);
+  return {
+    address: extractAddress(t), ownerName: extractOwner(t), listPrice: extractPrice(t),
+    beds: extractBeds(t), baths: extractBaths(t), sqft: extractSqft(t),
+    status: extractStatus(t), notes: t
+  };
+}
+
+function applyPropertyFields(fields){
+  if(fields.address) document.getElementById('f-address').value = fields.address;
+  if(fields.ownerName) document.getElementById('f-owner').value = fields.ownerName;
+  if(fields.listPrice) document.getElementById('f-price').value = fields.listPrice;
+  if(fields.beds) document.getElementById('f-beds').value = fields.beds;
+  if(fields.baths) document.getElementById('f-baths').value = fields.baths;
+  if(fields.sqft) document.getElementById('f-sqft').value = fields.sqft;
+  if(fields.status) document.getElementById('f-status').value = fields.status;
+  if(fields.notes) document.getElementById('f-notes').value = fields.notes;
 }
 
 /* ---------------- property autofill ---------------- */
-async function autofillProperty(){
+function autofillProperty(){
   const transcript = document.getElementById('transcript-prop').value.trim();
   if(!transcript) return;
   const aiBtn = document.getElementById('ai-prop');
   aiBtn.disabled = true;
-  aiBtn.textContent = '✨ Thinking…';
-  try{
-    const system = `Extract real estate property details from a real estate agent's spoken notes. Respond with ONLY a JSON object, no other text, using these keys (omit any key you can't confidently fill): address, ownerName, listPrice, beds, baths, sqft, status (one of "for-sale","for-lease","off-market"), notes (a short summary of anything else mentioned, like condition or client concerns).`;
-    const raw = await callClaude(system, transcript);
-    const fields = extractJson(raw);
-    if(fields.address) document.getElementById('f-address').value = fields.address;
-    if(fields.ownerName) document.getElementById('f-owner').value = fields.ownerName;
-    if(fields.listPrice) document.getElementById('f-price').value = fields.listPrice;
-    if(fields.beds) document.getElementById('f-beds').value = fields.beds;
-    if(fields.baths) document.getElementById('f-baths').value = fields.baths;
-    if(fields.sqft) document.getElementById('f-sqft').value = fields.sqft;
-    if(fields.status) document.getElementById('f-status').value = fields.status;
-    if(fields.notes) document.getElementById('f-notes').value = fields.notes;
-  } catch(err){
-    alert('Auto-fill failed: ' + err.message);
-  } finally{
-    aiBtn.disabled = false;
-    aiBtn.textContent = '✨ Auto-fill fields';
-  }
+  aiBtn.textContent = '✨ Filling…';
+  try{ applyPropertyFields(extractPropertyFields(transcript)); }
+  catch(err){ alert('Auto-fill failed: ' + err.message); }
+  finally{ aiBtn.disabled = false; aiBtn.textContent = '✨ Auto-fill fields'; }
 }
 
 function clearPropertyForm(){
@@ -455,26 +495,64 @@ function renderEntries(){
 }
 
 /* ---------------- reminders ---------------- */
-async function autofillReminder(){
+function pad2(n){ return String(n).padStart(2,'0'); }
+function dateToYMD(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+
+function parseReminderDate(text){
+  const t=text.toLowerCase();
+  const now=new Date();
+  let d=new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if(/\btoday\b/.test(t)) return dateToYMD(d);
+  if(/\btomorrow\b/.test(t)){ d.setDate(d.getDate()+1); return dateToYMD(d); }
+  const inDays=t.match(/\bin\s+(\d+)\s+days?\b/);
+  if(inDays){ d.setDate(d.getDate()+Number(inDays[1])); return dateToYMD(d); }
+  const weekdays=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+  for(let i=0;i<weekdays.length;i++){
+    if(new RegExp('\\b(?:this\\s+|next\\s+)?'+weekdays[i]+'\\b').test(t)){
+      let delta=(i-d.getDay()+7)%7;
+      if(delta===0 || new RegExp('\\bnext\\s+'+weekdays[i]+'\\b').test(t)) delta += 7;
+      d.setDate(d.getDate()+delta); return dateToYMD(d);
+    }
+  }
+  const numeric=t.match(/\b(\d{1,2})[\/-](\d{1,2})(?:[\/-](\d{2,4}))?\b/);
+  if(numeric){ let y=numeric[3] ? Number(numeric[3]) : now.getFullYear(); if(y<100) y+=2000; return y+'-'+pad2(Number(numeric[1]))+'-'+pad2(Number(numeric[2])); }
+  return '';
+}
+
+function parseReminderTime(text){
+  const t=text.toLowerCase();
+  const m=t.match(/\b(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)\b/);
+  if(m){ let h=Number(m[1]), min=Number(m[2]||0); const pm=m[3].startsWith('p'); if(pm && h<12) h+=12; if(!pm && h===12) h=0; return pad2(h)+':'+pad2(min); }
+  const military=t.match(/\bat\s+(\d{1,2}):(\d{2})\b/);
+  if(military) return pad2(Number(military[1]))+':'+pad2(Number(military[2]));
+  if(/\bnoon\b/.test(t)) return '12:00';
+  if(/\bmidnight\b/.test(t)) return '00:00';
+  return '';
+}
+
+function cleanReminderText(text){
+  let s=cleanSpace(text).replace(/^remind me to\s+/i,'').replace(/^reminder(?: to|:)?\s+/i,'');
+  s=s.replace(/\s+\b(?:today|tomorrow)\b/ig,'')
+     .replace(/\s+\bin\s+\d+\s+days?\b/ig,'')
+     .replace(/\s+\b(?:this|next)?\s*(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/ig,'')
+     .replace(/\s+\bat\s+\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)\b/ig,'')
+     .replace(/\s+\b(?:noon|midnight)\b/ig,'').replace(/[,.]+$/,'');
+  return cleanSpace(s);
+}
+
+function autofillReminder(){
   const transcript = document.getElementById('transcript-rem').value.trim();
   if(!transcript) return;
   const aiBtn = document.getElementById('ai-rem');
-  aiBtn.disabled = true;
-  aiBtn.textContent = '✨ Thinking…';
+  aiBtn.disabled = true; aiBtn.textContent = '✨ Parsing…';
   try{
-    const today = new Date().toISOString().slice(0,10);
-    const system = `Extract a reminder from a real estate agent's spoken note. Today's date is ${today}. Respond with ONLY a JSON object with keys: text (short reminder text), date (YYYY-MM-DD, resolve relative dates like "Friday" or "in 3 days" against today), time (HH:MM 24-hour, omit if no time mentioned).`;
-    const raw = await callClaude(system, transcript);
-    const fields = extractJson(raw);
-    if(fields.text) document.getElementById('r-text').value = fields.text;
-    if(fields.date) document.getElementById('r-date').value = fields.date;
-    if(fields.time) document.getElementById('r-time').value = fields.time;
-  } catch(err){
-    alert('Parse failed: ' + err.message);
-  } finally{
-    aiBtn.disabled = false;
-    aiBtn.textContent = '✨ Parse reminder';
-  }
+    const text=cleanReminderText(transcript), date=parseReminderDate(transcript), time=parseReminderTime(transcript);
+    if(text) document.getElementById('r-text').value=text;
+    if(date) document.getElementById('r-date').value=date;
+    if(time) document.getElementById('r-time').value=time;
+    if(!date) alert('I filled the reminder text, but I could not recognize a date. Try saying “tomorrow,” “Friday,” or “10/2”.');
+  } catch(err){ alert('Reminder parse failed: ' + err.message); }
+  finally{ aiBtn.disabled = false; aiBtn.textContent = '✨ Parse reminder'; }
 }
 
 function saveReminder(){
