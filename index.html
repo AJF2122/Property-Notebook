@@ -85,6 +85,24 @@
     .primary-btn,.ghost-btn{min-height:44px;}
   }
 
+  .lookup-card{border-color:#cbd8ea; background:linear-gradient(180deg,#fff,#f8fbff);}
+  .lookup-title-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:5px;}
+  .lookup-title-row h2{margin-bottom:0;}
+  .source-pill{font-size:10px; font-weight:800; color:var(--accent); background:var(--accent-soft); border-radius:100px; padding:4px 8px; white-space:nowrap;}
+  .lookup-controls{display:flex; gap:8px; align-items:stretch;}
+  .lookup-controls input{flex:1; min-width:0; border:1px solid var(--border); border-radius:11px; padding:11px 12px; background:var(--surface); color:var(--text);}
+  .lookup-btn{border:none; border-radius:11px; padding:10px 14px; background:var(--accent); color:#fff; font-weight:800; cursor:pointer; white-space:nowrap; min-height:44px;}
+  .lookup-btn:disabled{opacity:.55; cursor:default;}
+  .lookup-status{display:none; margin-top:10px; padding:9px 11px; border-radius:10px; font-size:12px; line-height:1.4;}
+  .lookup-status.show{display:block;}
+  .lookup-status.info{background:var(--accent-soft); color:var(--accent);}
+  .lookup-status.good{background:var(--good-soft); color:#25794a;}
+  .lookup-status.bad{background:var(--danger-soft); color:var(--danger);}
+  .lookup-help{font-size:11px; color:var(--dim); margin-top:8px; line-height:1.45;}
+  .detail-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;}
+  .generated-badge{font-size:10px; font-weight:700; color:var(--dim); margin-left:5px;}
+  @media (max-width:520px){.lookup-controls{flex-direction:column;} .lookup-btn{width:100%;}.detail-grid{grid-template-columns:1fr;}}
+
   .btn-row{display:flex; gap:10px; margin-top:6px;}
   .primary-btn{flex:1; padding:11px; border-radius:12px; border:none; background:var(--accent); color:#fff; font-weight:700; font-size:14px; cursor:pointer;}
   .ghost-btn{padding:11px 16px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:var(--dim); font-weight:700; font-size:14px; cursor:pointer;}
@@ -129,9 +147,9 @@
   <header class="app-header">
     <div>
       <h1>Property Notebook</h1>
-      <div class="sub">prototype · iPhone ready · no API key</div>
+      <div class="sub">prototype · iPhone ready · property lookup</div>
     </div>
-    <div class="icon-btn" title="No API key required" aria-label="No API key required">✓</div>
+    <button class="icon-btn" type="button" onclick="openDataSettings()" title="RentCast settings" aria-label="RentCast settings">⚙</button>
   </header>
 
   <div class="tabs">
@@ -141,6 +159,19 @@
 
   <!-- ===================== PROPERTIES ===================== -->
   <div class="panel active" id="panel-properties">
+    <div class="card lookup-card">
+      <div class="lookup-title-row">
+        <h2>Property lookup</h2>
+        <span class="source-pill">RentCast</span>
+      </div>
+      <div class="lookup-controls">
+        <input id="lookup-address" type="text" autocomplete="street-address" autocapitalize="words" placeholder="Full address: street, city, state, ZIP" enterkeyhint="search" onkeydown="if(event.key==='Enter'){lookupProperty();}">
+        <button class="lookup-btn" id="lookup-btn" type="button" onclick="lookupProperty()">🔎 Find Property</button>
+      </div>
+      <div class="lookup-status" id="lookup-status"></div>
+      <div class="lookup-help">Enter a full U.S. property address. The prototype pulls public-record details plus an active sale listing when RentCast has one. A free RentCast API key is required for live lookups; no Anthropic/AI key is used.</div>
+    </div>
+
     <div class="card">
       <h2>New entry</h2>
       <div class="voice-row">
@@ -174,6 +205,33 @@
             <option value="off-market">Off market</option>
           </select>
         </div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>MLS number</label><input id="f-mls" type="text"></div>
+        <div class="field"><label>Property type</label><input id="f-type" type="text"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Year built</label><input id="f-year" type="text" inputmode="numeric"></div>
+        <div class="field"><label>Lot size (sqft)</label><input id="f-lot" type="text" inputmode="numeric"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>HOA / month</label><input id="f-hoa" type="text" inputmode="decimal"></div>
+        <div class="field"><label>Days on market</label><input id="f-dom" type="text" inputmode="numeric"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>APN / Assessor ID</label><input id="f-apn" type="text"></div>
+        <div class="field"><label>Latest annual property tax</label><input id="f-tax" type="text" inputmode="decimal"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Listing agent</label><input id="f-agent" type="text"></div>
+        <div class="field"><label>Listing office</label><input id="f-office" type="text"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Last sale price</label><input id="f-lastsale" type="text" inputmode="decimal"></div>
+        <div class="field"><label>Last sale date</label><input id="f-lastsaledate" type="text"></div>
+      </div>
+      <div class="field-row">
+        <div class="field full"><label>Property summary <span class="generated-badge">generated from returned data</span></label><textarea id="f-summary"></textarea></div>
       </div>
       <div class="field-row">
         <div class="field full"><label>Notes</label><textarea id="f-notes"></textarea></div>
@@ -219,7 +277,21 @@
   </div>
 
   <div class="note" style="text-align:center; margin-top:20px;">
-    Prototype note — no API key is required. Auto-fill uses a built-in local parser for common real-estate wording, and data is stored only in this browser (localStorage). Nothing is sent to Anthropic or another AI service.
+    Prototype note — voice/text Auto-fill still runs locally with no AI key. Live property lookup uses RentCast and therefore needs a RentCast API key. Property Notebook data is stored in this browser (localStorage). For a production app, the RentCast key should be moved to a server-side function rather than stored in the browser.
+  </div>
+</div>
+
+<!-- RentCast settings modal -->
+<div class="modal-backdrop" id="data-settings-modal">
+  <div class="modal">
+    <h3>RentCast property lookup</h3>
+    <p>Paste your RentCast API key here for prototype testing. RentCast offers a free developer plan. The key is saved only in this browser's localStorage. Do not put the key directly in GitHub or inside index.html.</p>
+    <input id="rentcast-key-input" type="password" placeholder="RentCast API key" autocomplete="off">
+    <div class="btn-row">
+      <button class="primary-btn" type="button" onclick="saveRentCastKey()">Save key</button>
+      <button class="ghost-btn" type="button" onclick="closeDataSettings()">Cancel</button>
+    </div>
+    <div class="note">For the final public version, use a backend/serverless function so the API key is never exposed to the browser.</div>
   </div>
 </div>
 
@@ -229,6 +301,7 @@ let entries = JSON.parse(localStorage.getItem('pn_entries') || '[]');
 let reminders = JSON.parse(localStorage.getItem('pn_reminders') || '[]');
 let recognition = null;
 let recordingTarget = null;
+let rentcastApiKey = localStorage.getItem('pn_rentcast_key') || '';
 
 /* ---------------- tabs ---------------- */
 function switchTab(tab){
@@ -236,6 +309,148 @@ function switchTab(tab){
   document.getElementById('panel-reminders').classList.toggle('active', tab==='reminders');
   document.getElementById('tab-props').classList.toggle('active', tab==='properties');
   document.getElementById('tab-rem').classList.toggle('active', tab==='reminders');
+}
+
+/* ---------------- RentCast settings ---------------- */
+function openDataSettings(){
+  const modal=document.getElementById('data-settings-modal');
+  document.getElementById('rentcast-key-input').value=rentcastApiKey;
+  modal.classList.add('open');
+}
+function closeDataSettings(){ document.getElementById('data-settings-modal').classList.remove('open'); }
+function saveRentCastKey(){
+  rentcastApiKey=document.getElementById('rentcast-key-input').value.trim();
+  localStorage.setItem('pn_rentcast_key', rentcastApiKey);
+  closeDataSettings();
+  setLookupStatus(rentcastApiKey ? 'RentCast key saved. Enter an address and tap Find Property.' : 'RentCast key cleared.', rentcastApiKey ? 'good' : 'info');
+}
+
+function setLookupStatus(message,type='info'){
+  const el=document.getElementById('lookup-status');
+  el.textContent=message;
+  el.className='lookup-status show '+type;
+}
+function money(value){
+  if(value===null || value===undefined || value==='') return '';
+  const n=Number(value); return Number.isFinite(n) ? '$'+Math.round(n).toLocaleString('en-US') : String(value);
+}
+function latestTax(record){
+  const taxes=record && record.propertyTaxes;
+  if(!taxes || typeof taxes!=='object') return '';
+  const years=Object.keys(taxes).sort((a,b)=>Number(b)-Number(a));
+  for(const y of years){ if(taxes[y] && taxes[y].total!=null) return money(taxes[y].total); }
+  return '';
+}
+function safeDate(value){
+  if(!value) return '';
+  const d=new Date(value); if(Number.isNaN(d.getTime())) return String(value).slice(0,10);
+  return d.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
+}
+function buildPropertySummary(data){
+  const p=data.record || {}, l=data.listing || {};
+  const address=l.formattedAddress || p.formattedAddress || document.getElementById('lookup-address').value.trim();
+  const type=l.propertyType || p.propertyType || 'property';
+  const beds=l.bedrooms ?? p.bedrooms;
+  const baths=l.bathrooms ?? p.bathrooms;
+  const sqft=l.squareFootage ?? p.squareFootage;
+  const lot=l.lotSize ?? p.lotSize;
+  const year=l.yearBuilt ?? p.yearBuilt;
+  const hoa=(l.hoa && l.hoa.fee!=null) ? l.hoa.fee : (p.hoa && p.hoa.fee!=null ? p.hoa.fee : null);
+  const parts=[];
+  if(address) parts.push(address+'.');
+  let sentence=type;
+  const attrs=[];
+  if(beds!=null) attrs.push(beds+' bed');
+  if(baths!=null) attrs.push(baths+' bath');
+  if(sqft!=null) attrs.push(Number(sqft).toLocaleString('en-US')+' sq ft');
+  if(attrs.length) sentence += ' with '+attrs.join(', ');
+  if(year!=null) sentence += ', built in '+year;
+  sentence += '.';
+  parts.push(sentence.charAt(0).toUpperCase()+sentence.slice(1));
+  if(l.price!=null) parts.push('Active sale listing price: '+money(l.price)+'.');
+  if(hoa!=null) parts.push('Reported HOA fee: '+money(hoa)+' per month.');
+  if(l.mlsNumber) parts.push('MLS #'+l.mlsNumber+(l.mlsName?' ('+l.mlsName+')':'')+'.');
+  if(l.daysOnMarket!=null) parts.push(l.daysOnMarket+' days on market.');
+  if(lot!=null) parts.push('Lot size: '+Number(lot).toLocaleString('en-US')+' sq ft.');
+  return parts.join(' ');
+}
+async function rentcastGet(path){
+  const res=await fetch('https://api.rentcast.io'+path,{
+    method:'GET',
+    headers:{'Accept':'application/json','X-Api-Key':rentcastApiKey}
+  });
+  if(!res.ok){
+    let detail=''; try{ detail=await res.text(); }catch(e){}
+    const err=new Error('RentCast returned '+res.status+(detail?' — '+detail.slice(0,180):''));
+    err.status=res.status; throw err;
+  }
+  return res.json();
+}
+async function lookupProperty(){
+  const address=document.getElementById('lookup-address').value.trim();
+  if(!address){ setLookupStatus('Enter the full property address first.','bad'); return; }
+  if(!rentcastApiKey){
+    setLookupStatus('Add your free RentCast API key first. Tap the gear at the top.','info');
+    openDataSettings(); return;
+  }
+  const btn=document.getElementById('lookup-btn');
+  btn.disabled=true; btn.textContent='Looking up…';
+  setLookupStatus('Searching property records and active sale listings…','info');
+  try{
+    const q=encodeURIComponent(address);
+    const [recordResult,listingResult]=await Promise.allSettled([
+      rentcastGet('/v1/properties?address='+q+'&suppressLogging=true'),
+      rentcastGet('/v1/listings/sale?address='+q+'&limit=1&suppressLogging=true')
+    ]);
+    if(recordResult.status==='rejected' && listingResult.status==='rejected'){
+      const err=recordResult.reason || listingResult.reason;
+      if(err && err.status===401){ openDataSettings(); throw new Error('The RentCast API key was rejected. Check the key in Settings.'); }
+      throw err || new Error('Property lookup failed.');
+    }
+    const recordArray=recordResult.status==='fulfilled' ? recordResult.value : [];
+    const listingArray=listingResult.status==='fulfilled' ? listingResult.value : [];
+    const record=Array.isArray(recordArray) ? recordArray[0] : recordArray;
+    const listing=Array.isArray(listingArray) ? listingArray[0] : listingArray;
+    if(!record && !listing){ setLookupStatus('No matching property was found. Try a complete address including city, state, and ZIP.','bad'); return; }
+    applyLookupData(record || {}, listing || {});
+    const bits=[];
+    if(record) bits.push('public record');
+    if(listing) bits.push('active sale listing');
+    setLookupStatus('Found '+bits.join(' + ')+'. Review the fields below before saving.','good');
+  }catch(err){
+    console.error(err);
+    const msg=(err && err.message) ? err.message : 'Lookup failed.';
+    setLookupStatus(msg.includes('Failed to fetch') ? 'The browser could not reach RentCast. If this keeps happening, we will move the lookup to a small server-side function.' : msg,'bad');
+  }finally{
+    btn.disabled=false; btn.textContent='🔎 Find Property';
+  }
+}
+function setField(id,value){ if(value!==undefined && value!==null && value!=='') document.getElementById(id).value=String(value); }
+function applyLookupData(record,listing){
+  const address=listing.formattedAddress || record.formattedAddress;
+  const owner=record.owner && Array.isArray(record.owner.names) ? record.owner.names.join(', ') : '';
+  const hoa=(listing.hoa && listing.hoa.fee!=null) ? listing.hoa.fee : (record.hoa && record.hoa.fee!=null ? record.hoa.fee : '');
+  setField('f-address',address);
+  if(address) document.getElementById('lookup-address').value=address;
+  setField('f-owner',owner);
+  if(listing.price!=null) setField('f-price',money(listing.price));
+  setField('f-beds',listing.bedrooms ?? record.bedrooms);
+  setField('f-baths',listing.bathrooms ?? record.bathrooms);
+  setField('f-sqft',listing.squareFootage ?? record.squareFootage);
+  if(listing && listing.status==='Active') document.getElementById('f-status').value='for-sale';
+  setField('f-mls',listing.mlsNumber || '');
+  setField('f-type',listing.propertyType || record.propertyType || '');
+  setField('f-year',listing.yearBuilt ?? record.yearBuilt);
+  setField('f-lot',listing.lotSize ?? record.lotSize);
+  if(hoa!=='') setField('f-hoa',money(hoa));
+  setField('f-dom',listing.daysOnMarket);
+  setField('f-apn',record.assessorID);
+  setField('f-tax',latestTax(record));
+  setField('f-agent',listing.listingAgent && listing.listingAgent.name);
+  setField('f-office',listing.listingOffice && listing.listingOffice.name);
+  if(record.lastSalePrice!=null) setField('f-lastsale',money(record.lastSalePrice));
+  setField('f-lastsaledate',safeDate(record.lastSaleDate));
+  setField('f-summary',buildPropertySummary({record,listing}));
 }
 
 /* ---------------- voice recording ---------------- */
@@ -436,7 +651,7 @@ function autofillProperty(){
 }
 
 function clearPropertyForm(){
-  ['f-address','f-owner','f-price','f-beds','f-baths','f-sqft','f-notes'].forEach(id => document.getElementById(id).value = '');
+  ['f-address','f-owner','f-price','f-beds','f-baths','f-sqft','f-mls','f-type','f-year','f-lot','f-hoa','f-dom','f-apn','f-tax','f-agent','f-office','f-lastsale','f-lastsaledate','f-summary','f-notes'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('f-status').value = 'for-sale';
   document.getElementById('transcript-prop').value = '';
   document.getElementById('ai-prop').disabled = true;
@@ -446,14 +661,26 @@ function saveEntry(){
   const address = document.getElementById('f-address').value.trim();
   if(!address){ alert('Address is required.'); return; }
   const entry = {
-    id: Date.now(),
-    address,
+    id: Date.now(), address,
     owner: document.getElementById('f-owner').value.trim(),
     price: document.getElementById('f-price').value.trim(),
     beds: document.getElementById('f-beds').value.trim(),
     baths: document.getElementById('f-baths').value.trim(),
     sqft: document.getElementById('f-sqft').value.trim(),
     status: document.getElementById('f-status').value,
+    mls: document.getElementById('f-mls').value.trim(),
+    propertyType: document.getElementById('f-type').value.trim(),
+    yearBuilt: document.getElementById('f-year').value.trim(),
+    lotSize: document.getElementById('f-lot').value.trim(),
+    hoa: document.getElementById('f-hoa').value.trim(),
+    dom: document.getElementById('f-dom').value.trim(),
+    apn: document.getElementById('f-apn').value.trim(),
+    tax: document.getElementById('f-tax').value.trim(),
+    agent: document.getElementById('f-agent').value.trim(),
+    office: document.getElementById('f-office').value.trim(),
+    lastSale: document.getElementById('f-lastsale').value.trim(),
+    lastSaleDate: document.getElementById('f-lastsaledate').value.trim(),
+    summary: document.getElementById('f-summary').value.trim(),
     notes: document.getElementById('f-notes').value.trim()
   };
   entries.unshift(entry);
@@ -470,7 +697,7 @@ function statusLabel(s){ return {'for-sale':'For sale','for-lease':'For lease','
 
 function renderEntries(){
   const list = document.getElementById('entries-list');
-  if(!entries.length){ list.innerHTML = '<div class="empty-state">No entries yet — record a voice note above or fill the form.</div>'; return; }
+  if(!entries.length){ list.innerHTML = '<div class="empty-state">No entries yet — look up a property, record a voice note, or fill the form.</div>'; return; }
   list.innerHTML = entries.map(e => `
     <div class="entry-card">
       <div class="entry-top">
@@ -480,13 +707,22 @@ function renderEntries(){
         </div>
         <span class="status-pill ${e.status}">${statusLabel(e.status)}</span>
       </div>
-      <div class="entry-meta">
+      <div class="entry-meta" style="flex-wrap:wrap;">
         ${e.price ? `<span>${escapeHtml(e.price)}</span>` : ''}
         ${e.beds ? `<span>${escapeHtml(e.beds)} bd</span>` : ''}
         ${e.baths ? `<span>${escapeHtml(e.baths)} ba</span>` : ''}
         ${e.sqft ? `<span>${escapeHtml(e.sqft)} sqft</span>` : ''}
+        ${e.hoa ? `<span>HOA ${escapeHtml(e.hoa)}/mo</span>` : ''}
+        ${e.mls ? `<span>MLS ${escapeHtml(e.mls)}</span>` : ''}
       </div>
-      ${e.notes ? `<div class="entry-notes">${escapeHtml(e.notes)}</div>` : ''}
+      ${(e.propertyType || e.yearBuilt || e.lotSize || e.apn) ? `<div class="entry-notes">${[
+        e.propertyType ? escapeHtml(e.propertyType) : '',
+        e.yearBuilt ? 'Built '+escapeHtml(e.yearBuilt) : '',
+        e.lotSize ? 'Lot '+escapeHtml(e.lotSize)+' sqft' : '',
+        e.apn ? 'APN '+escapeHtml(e.apn) : ''
+      ].filter(Boolean).join(' · ')}</div>` : ''}
+      ${e.summary ? `<div class="entry-notes"><strong>Summary:</strong> ${escapeHtml(e.summary)}</div>` : ''}
+      ${e.notes ? `<div class="entry-notes"><strong>Notes:</strong> ${escapeHtml(e.notes)}</div>` : ''}
       <div class="entry-actions">
         <button class="danger" onclick="deleteEntry(${e.id})">Delete</button>
       </div>
@@ -627,6 +863,9 @@ setInterval(() => {
 function escapeHtml(s){
   return (s || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
+
+document.getElementById('data-settings-modal').addEventListener('click',e=>{ if(e.target.id==='data-settings-modal') closeDataSettings(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeDataSettings(); });
 
 /* ---------------- init ---------------- */
 renderEntries();
